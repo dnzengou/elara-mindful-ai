@@ -1,73 +1,74 @@
-# React + TypeScript + Vite
+# Elara - Mindfulness AI Companion
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Voice-enabled mindfulness app with guided sessions, AI coaching, and daily practice tracking. Inspired by Headspace and Petit Bambou.
 
-Currently, two official plugins are available:
+## Stack
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+React 19 + TypeScript + Vite + Tailwind CSS + GSAP + Web Speech API
 
-## React Compiler
+## Features
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **Two-way voice chat** — Speak to Elara, she listens, thinks, speaks back
+- **3 voice engines** — Browser Native (free), xAI Grok (streaming), OpenAI TTS (6 HD voices)
+- **8 guided sessions** — Box Breathing, 4-7-8, Body Scan, Loving-Kindness, Sleep Wind-Down, Mindful Walking, Coherent Breathing, Three-Breath Reset
+- **Breathing animation** — Visual circle synced to inhale/hold/exhale phases
+- **Daily Practice** — Words of Wisdom, Spiritual Practice, Physical Practice with curated suggestions
+- **Journal** — Mood + reflection entries with timestamps
+- **Daily Flow** — Time-aware routine visualization
+- **Dark immersive UI** — Calm amber/teal palette, 60fps waveform
 
-## Expanding the ESLint configuration
+## Quick Start
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
+# Add API keys to .env (see .env.example)
+npm run build
+npx vite preview
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Environment Variables
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+| Variable | Purpose | Required |
+|----------|---------|----------|
+| `VITE_DEEPSEEK_API_KEY` | AI chat responses via DeepSeek | Yes |
+| `VITE_XAI_API_KEY` | xAI Grok TTS/STT voice | No |
+| `VITE_OPENAI_API_KEY` | OpenAI TTS (6 voices) | No |
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+**Note:** All vars must start with `VITE_` for Vite to expose them to the browser.
+
+## Deploy
+
+See [DEPLOY.md](../DEPLOY.md) for step-by-step guides for Netlify, Vercel, GitHub Pages, Cloudflare Pages, and Render.
+
+### One-liner deploy
+
+**Netlify:** `npm run build && npx netlify deploy --dir=dist --prod`
+
+**Vercel:** `npm run build && npx vercel --prod`
+
+**GitHub Pages:** `npm install -D gh-pages && npm run deploy`
+
+## Voice Engines
+
+| Engine | STT | TTS | Cost |
+|--------|-----|-----|------|
+| Browser Native | `webkitSpeechRecognition` | `speechSynthesis` | Free |
+| xAI Grok | WebSocket streaming | `grok-tts` / `cove` | Per xAI pricing |
+| OpenAI TTS | Browser STT fallback | `tts-1` (6 voices) | Per OpenAI pricing |
+
+OpenAI voices: Nova (warm, default), Alloy (balanced), Shimmer (bright), Echo (warm), Fable (British), Onyx (deep).
+
+## Project Structure
+
 ```
+src/
+  components/    — React components (UI, Player, Tabs, Panels)
+  data/          — Session library (8 guided exercises)
+  hooks/         — Voice engine, conversation, sessions, practice, journal
+  types/         — TypeScript interfaces
+  App.tsx        — Root component
+```
+
+## License
+
+MIT
