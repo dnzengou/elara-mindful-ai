@@ -1,16 +1,22 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, lazy, Suspense } from 'react';
 import { PracticeTab } from './PracticeTab';
 import { JournalTab } from './JournalTab';
 import { FlowTab } from './FlowTab';
 import { SessionsTab } from './SessionsTab';
 
-type Tab = 'practice' | 'journal' | 'flow' | 'sessions';
+// Lazy-load InsightsTab — keeps initial bundle lean
+const InsightsTab = lazy(() =>
+  import('./InsightsTab').then(m => ({ default: m.InsightsTab }))
+);
+
+type Tab = 'practice' | 'journal' | 'flow' | 'sessions' | 'insights';
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'sessions', label: 'Sessions', icon: '🎧' },
   { id: 'practice', label: 'Practice', icon: '🧘' },
   { id: 'journal', label: 'Journal', icon: '📓' },
   { id: 'flow', label: 'Flow', icon: '🌊' },
+  { id: 'insights', label: 'Insights', icon: '✨' },
 ];
 
 interface SidePanelProps {
@@ -89,6 +95,11 @@ export function SidePanel({ onStartSession, completionCount }: SidePanelProps) {
           {activeTab === 'practice' && <PracticeTab />}
           {activeTab === 'journal' && <JournalTab />}
           {activeTab === 'flow' && <FlowTab />}
+          {activeTab === 'insights' && (
+            <Suspense fallback={<div style={{ color: 'var(--text-tertiary)', fontSize: 13, padding: 16 }}>Loading...</div>}>
+              <InsightsTab />
+            </Suspense>
+          )}
         </div>
       </div>
 

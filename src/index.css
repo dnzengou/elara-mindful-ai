@@ -60,6 +60,10 @@
   }
 }
 
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 @layer components {
   /* Status dot pulse animations */
   @keyframes pulse-listening {
