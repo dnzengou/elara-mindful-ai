@@ -1,0 +1,128 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Design Tokens */
+    --bg-base: #0A0A0F;
+    --bg-surface: #12121A;
+    --bg-elevated: #1A1A25;
+    --text-primary: #F0EDE6;
+    --text-secondary: #8A8580;
+    --text-tertiary: #5A5550;
+    --accent-amber: #D4A853;
+    --accent-amber-glow: rgba(212, 168, 83, 0.15);
+    --accent-teal: #4ECDC4;
+    --accent-teal-glow: rgba(78, 205, 196, 0.12);
+    --accent-purple: #8A7BB5;
+    --border-subtle: rgba(240, 237, 230, 0.06);
+    --status-listening: #4ECDC4;
+    --status-speaking: #D4A853;
+    --status-thinking: #8A7BB5;
+    --status-idle: #5A5550;
+    --error-red: #E05555;
+
+    /* shadcn compatibility */
+    --background: 240 14% 4%;
+    --foreground: 40 18% 93%;
+    --card: 240 17% 7%;
+    --card-foreground: 40 18% 93%;
+    --popover: 240 17% 7%;
+    --popover-foreground: 40 18% 93%;
+    --primary: 42 52% 57%;
+    --primary-foreground: 240 14% 4%;
+    --secondary: 240 10% 12%;
+    --secondary-foreground: 40 18% 93%;
+    --muted: 240 10% 12%;
+    --muted-foreground: 30 5% 53%;
+    --accent: 240 10% 12%;
+    --accent-foreground: 40 18% 93%;
+    --destructive: 0 68% 58%;
+    --destructive-foreground: 40 18% 93%;
+    --border: 240 10% 12%;
+    --input: 240 10% 12%;
+    --ring: 42 52% 57%;
+    --radius: 0.75rem;
+  }
+
+  body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background-color: var(--bg-base);
+    color: var(--text-primary);
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  * {
+    @apply border-[var(--border-subtle)];
+  }
+}
+
+@layer components {
+  /* Status dot pulse animations */
+  @keyframes pulse-listening {
+    0%, 100% { transform: scale(1); opacity: 1; box-shadow: 0 0 0 0 rgba(78, 205, 196, 0.4); }
+    50% { transform: scale(1.6); opacity: 0.7; box-shadow: 0 0 0 8px rgba(78, 205, 196, 0); }
+  }
+
+  @keyframes pulse-thinking {
+    0%, 100% { transform: scale(1); opacity: 1; box-shadow: 0 0 0 0 rgba(138, 123, 181, 0.4); }
+    50% { transform: scale(1.6); opacity: 0.7; box-shadow: 0 0 0 8px rgba(138, 123, 181, 0); }
+  }
+
+  @keyframes pulse-speaking {
+    0%, 100% { transform: scale(1); opacity: 1; box-shadow: 0 0 0 0 rgba(212, 168, 83, 0.4); }
+    50% { transform: scale(1.6); opacity: 0.7; box-shadow: 0 0 0 8px rgba(212, 168, 83, 0); }
+  }
+
+  .status-dot-listening {
+    animation: pulse-listening 1.5s ease-in-out infinite;
+  }
+
+  .status-dot-thinking {
+    animation: pulse-thinking 1s ease-in-out infinite;
+  }
+
+  .status-dot-speaking {
+    animation: pulse-speaking 0.8s ease-in-out infinite;
+  }
+
+  /* Scrollbar styling */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: var(--text-tertiary);
+    border-radius: 9999px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: var(--text-secondary);
+  }
+
+  /* Breathing animations for session player */
+  @keyframes breathe-ring {
+    0%, 100% { transform: scale(1); opacity: 0.15; }
+    45% { transform: scale(1.35); opacity: 0.28; }
+    70% { transform: scale(1.35); opacity: 0.28; }
+  }
+
+  @keyframes breathe-core {
+    0%, 100% { transform: scale(1); }
+    45% { transform: scale(1.4); }
+    70% { transform: scale(1.4); }
+  }
+
+  @keyframes breathe-dot {
+    0%, 100% { transform: scale(1); opacity: 0.7; }
+    45% { transform: scale(1.6); opacity: 1; }
+    70% { transform: scale(1.6); opacity: 1; }
+  }
+}
