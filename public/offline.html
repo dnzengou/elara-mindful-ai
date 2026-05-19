@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Elara — Offline</title>
+  <style>
+    :root {
+      --bg: #0A0A0F;
+      --surface: #12121A;
+      --amber: #D4A853;
+      --teal: #4ECDC4;
+      --text: #F0EDE6;
+      --muted: #5A5550;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 2rem;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .orb {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(212,168,83,0.22) 0%, transparent 70%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 1.5rem;
+      animation: breathe 4s ease-in-out infinite;
+    }
+    @keyframes breathe {
+      0%, 100% { transform: scale(1); opacity: 0.85; }
+      50% { transform: scale(1.15); opacity: 1; }
+    }
+
+    h1 { font-size: 2.5rem; font-weight: 200; letter-spacing: -0.02em; margin-bottom: 0.4rem; }
+    .sub { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); margin-bottom: 2rem; }
+
+    .card {
+      background: #12121A;
+      border: 1px solid rgba(240,237,230,0.06);
+      border-radius: 1rem;
+      padding: 1.5rem 2rem;
+      max-width: 320px;
+      margin-bottom: 1.5rem;
+    }
+    .card p { font-size: 0.95rem; line-height: 1.65; color: rgba(240,237,230,0.75); }
+    .card .label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--amber); margin-bottom: 0.5rem; }
+
+    .practice {
+      font-size: 1rem;
+      font-style: italic;
+      line-height: 1.7;
+      color: rgba(240,237,230,0.85);
+      max-width: 280px;
+      margin-bottom: 2rem;
+    }
+
+    button {
+      background: rgba(212,168,83,0.12);
+      border: 1px solid rgba(212,168,83,0.35);
+      color: var(--amber);
+      padding: 0.75rem 1.75rem;
+      border-radius: 0.75rem;
+      font-size: 0.9rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+      font-family: inherit;
+    }
+    button:hover { background: rgba(212,168,83,0.2); border-color: rgba(212,168,83,0.6); }
+
+    .footer { margin-top: 2rem; font-size: 0.75rem; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <div class="orb">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#D4A853" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+      <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+      <line x1="12" y1="19" x2="12" y2="23"/>
+    </svg>
+  </div>
+
+  <h1>Elara</h1>
+  <p class="sub">Mindfulness AI</p>
+
+  <div class="card">
+    <p class="label">Offline practice</p>
+    <p>You're not connected, but you still have your breath.</p>
+  </div>
+
+  <p class="practice">
+    "Breathe in for four counts.<br />
+    Hold gently for four.<br />
+    Release for six.<br />
+    This moment is complete."
+  </p>
+
+  <button onclick="window.location.reload()">
+    Try again
+  </button>
+
+  <p class="footer">Elara will be here when you reconnect.</p>
+</body>
+</html>

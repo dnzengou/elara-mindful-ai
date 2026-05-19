@@ -1,7 +1,7 @@
 {
   "name": "Elara Mindfulness AI",
   "short_name": "Elara",
-  "description": "Voice-enabled mindfulness companion with guided sessions, journal, and AI insights.",
+  "description": "Voice-first mindfulness companion — guided breathing, cultural wisdom, and AI coaching available anywhere.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0A0A0F",
@@ -21,6 +21,30 @@
       "purpose": "any maskable"
     }
   ],
+  "shortcuts": [
+    {
+      "name": "Start Breathing",
+      "short_name": "Breathe",
+      "description": "Begin a guided breathing session immediately",
+      "url": "/?intent=breathe",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Quick Journal",
+      "short_name": "Journal",
+      "description": "Open today's journal entry",
+      "url": "/?intent=journal",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Morning Insight",
+      "short_name": "Insight",
+      "description": "Get your AI morning briefing",
+      "url": "/?intent=insight",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    }
+  ],
   "categories": ["health", "lifestyle", "wellness"],
-  "lang": "en"
+  "lang": "en",
+  "prefer_related_applications": false
 }

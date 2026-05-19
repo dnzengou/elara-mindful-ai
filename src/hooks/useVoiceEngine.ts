@@ -30,6 +30,13 @@ const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY || '';
 const OPENAI_TTS_URL = 'https://api.openai.com/v1/audio/speech';
 const ENGINE_KEY = 'elara_voice_engine';
 const OAI_VOICE_KEY = 'elara_openai_voice';
+const AMBIENT_KEY = 'elara_ambient_mode';
+
+// Wake phrases — any of these trigger Elara
+const WAKE_PHRASES = ['hey elara', 'elara', 'ok elara', 'hi elara'];
+
+// Auto-resume delay after Elara finishes speaking (ms)
+const AUTO_RESUME_DELAY = 600;
 
 // ─── Engine Storage ───────────────────────────────────────
 function getStoredEngine(): VoiceEngine {
@@ -43,6 +50,26 @@ function getStoredOpenAIVoice(): string {
 }
 function setStoredOpenAIVoice(v: string) {
   localStorage.setItem(OAI_VOICE_KEY, v);
+}
+function getStoredAmbient(): boolean {
+  return localStorage.getItem(AMBIENT_KEY) === 'true';
+}
+
+// ─── Haptic ───────────────────────────────────────────────
+function haptic(pattern: number | number[] = 40) {
+  try { navigator.vibrate?.(pattern); } catch {}
+}
+
+// ─── Wake phrase check ────────────────────────────────────
+function startsWithWakePhrase(text: string): { matched: boolean; remainder: string } {
+  const lower = text.toLowerCase().trim();
+  for (const phrase of WAKE_PHRASES) {
+    if (lower.startsWith(phrase)) {
+      const remainder = text.slice(phrase.length).trim();
+      return { matched: true, remainder };
+    }
+  }
+  return { matched: false, remainder: text };
 }
 
 // ─── xAI TTS Fetch ────────────────────────────────────────
@@ -81,19 +108,28 @@ export function useVoiceEngine() {
   const [interimTranscript, setInterimTranscript] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isMuted, setIsMuted] = useState(false);
+  const [isAmbient, setIsAmbient] = useState(getStoredAmbient);
+  // wake-mode: continuous always-on listening that only fires when wake phrase detected
+  const [wakeMode, setWakeMode] = useState(false);
 
   const engineRef = useRef(engine);
   const openaiVoiceRef = useRef(openaiVoice);
   const statusRef = useRef<VoiceStatus>('idle');
   const isMutedRef = useRef(false);
+  const isAmbientRef = useRef(isAmbient);
+  const wakeModeRef = useRef(false);
   const finalTextRef = useRef('');
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const autoResumeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const processorRef = useRef<ScriptProcessorNode | null>(null);
   const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const recognitionRef = useRef<InstanceType<typeof window.SpeechRecognition | typeof window.webkitSpeechRecognition> | null>(null);
+  // Callbacks stored for auto-resume
+  const onUserMsgRef = useRef<((c: string) => void) | null>(null);
+  const onAsstMsgRef = useRef<((c: string) => void) | null>(null);
 
   const { sendMessage } = useLLM();
 
@@ -101,6 +137,8 @@ export function useVoiceEngine() {
   useEffect(() => { openaiVoiceRef.current = openaiVoice; }, [openaiVoice]);
   useEffect(() => { statusRef.current = status; }, [status]);
   useEffect(() => { isMutedRef.current = isMuted; }, [isMuted]);
+  useEffect(() => { isAmbientRef.current = isAmbient; localStorage.setItem(AMBIENT_KEY, String(isAmbient)); }, [isAmbient]);
+  useEffect(() => { wakeModeRef.current = wakeMode; }, [wakeMode]);
 
   const setStatusCb = useCallback((s: VoiceStatus) => {
     setStatus(s);
@@ -123,6 +161,10 @@ export function useVoiceEngine() {
       recognitionRef.current = null;
     }
     if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null; }
+  }, []);
+
+  const clearAutoResume = useCallback(() => {
+    if (autoResumeTimerRef.current) { clearTimeout(autoResumeTimerRef.current); autoResumeTimerRef.current = null; }
   }, []);
 
   // ── Browser TTS ─────────────────────────────────────────
@@ -162,26 +204,32 @@ export function useVoiceEngine() {
     return best || english[0];
   }
 
-  const speakWithBrowser = useCallback((text: string) => {
-    if (!window.speechSynthesis) { setStatusCb('idle'); return; }
-    window.speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text);
-    u.rate = 0.85;      // slower = calmer
-    u.pitch = 0.96;     // slightly lower = warmer
-    u.volume = 0.9;     // gentle volume
-
-    const voices = window.speechSynthesis.getVoices();
-    const voice = pickMindfulnessVoice(voices);
-    if (voice) u.voice = voice;
-
-    u.onstart = () => setStatusCb('speaking');
-    u.onend = () => setStatusCb('idle');
-    u.onerror = () => setStatusCb('idle');
-    window.speechSynthesis.speak(u);
+  // Called after any TTS finishes — sets idle + haptic
+  const onSpeechEnd = useCallback(() => {
+    setStatusCb('idle');
+    haptic(20);
   }, [setStatusCb]);
 
+  const speakWithBrowser = useCallback((text: string): Promise<void> => {
+    return new Promise((resolve) => {
+      if (!window.speechSynthesis) { setStatusCb('idle'); resolve(); return; }
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.rate = 0.85;
+      u.pitch = 0.96;
+      u.volume = 0.9;
+      const voices = window.speechSynthesis.getVoices();
+      const voice = pickMindfulnessVoice(voices);
+      if (voice) u.voice = voice;
+      u.onstart = () => setStatusCb('speaking');
+      u.onend = () => { onSpeechEnd(); resolve(); };
+      u.onerror = () => { onSpeechEnd(); resolve(); };
+      window.speechSynthesis.speak(u);
+    });
+  }, [setStatusCb, onSpeechEnd]);
+
   // ── TTS ─────────────────────────────────────────────────
-  const speak = useCallback(async (text: string) => {
+  const speak = useCallback(async (text: string): Promise<void> => {
     if (isMutedRef.current) { setStatusCb('idle'); return; }
 
     if (engineRef.current === 'xai') {
@@ -191,15 +239,14 @@ export function useVoiceEngine() {
         const url = URL.createObjectURL(blob);
         const audio = new Audio(url);
         await new Promise<void>((resolve) => {
-          audio.onended = () => { URL.revokeObjectURL(url); setStatusCb('idle'); resolve(); };
-          audio.onerror = () => { URL.revokeObjectURL(url); setStatusCb('idle'); resolve(); };
-          audio.play().catch(() => { URL.revokeObjectURL(url); setStatusCb('idle'); resolve(); });
+          audio.onended = () => { URL.revokeObjectURL(url); onSpeechEnd(); resolve(); };
+          audio.onerror = () => { URL.revokeObjectURL(url); onSpeechEnd(); resolve(); };
+          audio.play().catch(() => { URL.revokeObjectURL(url); onSpeechEnd(); resolve(); });
         });
       } catch {
-        // xAI TTS failed — silently fall back to browser TTS
         engineRef.current = 'webSpeech';
         localStorage.setItem('elara_voice_engine', 'webSpeech');
-        speakWithBrowser(text);
+        await speakWithBrowser(text);
       }
     } else if (engineRef.current === 'openai') {
       try {
@@ -208,34 +255,49 @@ export function useVoiceEngine() {
         const url = URL.createObjectURL(blob);
         const audio = new Audio(url);
         await new Promise<void>((resolve) => {
-          audio.onended = () => { URL.revokeObjectURL(url); setStatusCb('idle'); resolve(); };
-          audio.onerror = () => { URL.revokeObjectURL(url); setStatusCb('idle'); resolve(); };
-          audio.play().catch(() => { URL.revokeObjectURL(url); setStatusCb('idle'); resolve(); });
+          audio.onended = () => { URL.revokeObjectURL(url); onSpeechEnd(); resolve(); };
+          audio.onerror = () => { URL.revokeObjectURL(url); onSpeechEnd(); resolve(); };
+          audio.play().catch(() => { URL.revokeObjectURL(url); onSpeechEnd(); resolve(); });
         });
       } catch {
-        // OpenAI TTS failed — silently fall back to browser TTS
         engineRef.current = 'webSpeech';
         localStorage.setItem('elara_voice_engine', 'webSpeech');
-        speakWithBrowser(text);
+        await speakWithBrowser(text);
       }
     } else {
-      speakWithBrowser(text);
+      await speakWithBrowser(text);
     }
-  }, [setStatusCb, speakWithBrowser]);
+  }, [setStatusCb, speakWithBrowser, onSpeechEnd]);
+
+  // ref so processLLM can call startWebSpeech without circular dep
+  const startWebSpeechRef = useRef<((onUserMsg: (c: string) => void, onAsstMsg: (c: string) => void) => void) | null>(null);
 
   // ── Process LLM ─────────────────────────────────────────
   const processLLM = useCallback(async (text: string, onUserMsg: (c: string) => void, onAsstMsg: (c: string) => void) => {
     setStatusCb('thinking');
     setInterimTranscript('');
+    haptic(30);
     onUserMsg(text);
 
     const history = JSON.parse(localStorage.getItem('elara_history') || '[]') as Message[];
     const response = await sendMessage(history);
     onAsstMsg(response);
 
-    if (!isMutedRef.current) await speak(response);
-    else setStatusCb('idle');
-  }, [setStatusCb, sendMessage, speak]);
+    if (!isMutedRef.current) {
+      await speak(response);
+      // Auto-resume listening after Elara speaks — seamless conversation loop
+      if (engineRef.current !== 'xai') {
+        clearAutoResume();
+        autoResumeTimerRef.current = setTimeout(() => {
+          if (statusRef.current === 'idle' && startWebSpeechRef.current) {
+            startWebSpeechRef.current(onUserMsg, onAsstMsg);
+          }
+        }, AUTO_RESUME_DELAY);
+      }
+    } else {
+      setStatusCb('idle');
+    }
+  }, [setStatusCb, sendMessage, speak, clearAutoResume]);
 
   // ── Silence timer ───────────────────────────────────────
   const resetSilenceTimer = useCallback((onUserMsg: (c: string) => void, onAsstMsg: (c: string) => void) => {
@@ -251,7 +313,11 @@ export function useVoiceEngine() {
   // ── Web Speech STT ──────────────────────────────────────
   const startWebSpeech = useCallback((onUserMsg: (c: string) => void, onAsstMsg: (c: string) => void) => {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) { return; } // Silently skip — UI handles text-only mode
+    if (!SR) { return; }
+
+    // Store callbacks for auto-resume
+    onUserMsgRef.current = onUserMsg;
+    onAsstMsgRef.current = onAsstMsg;
 
     cleanupWebSpeech();
     finalTextRef.current = '';
@@ -268,16 +334,32 @@ export function useVoiceEngine() {
         if (e.results[i].isFinal) final += e.results[i][0].transcript;
         else interim += e.results[i][0].transcript;
       }
-      if (final) { finalTextRef.current += final; }
+
+      if (final) {
+        // Wake phrase gate: in wake mode, strip wake phrase and only respond to it
+        if (wakeModeRef.current) {
+          const { matched, remainder } = startsWithWakePhrase(final);
+          if (matched) {
+            haptic([30, 50, 30]); // triple pulse = wake triggered
+            finalTextRef.current = remainder || 'Hello';
+            setInterimTranscript('');
+            resetSilenceTimer(onUserMsg, onAsstMsg);
+          }
+          // In wake mode, ignore speech that doesn't start with wake phrase
+          return;
+        }
+        finalTextRef.current += final;
+      }
+
       setInterimTranscript(interim);
-      if (final || interim) resetSilenceTimer(onUserMsg, onAsstMsg);
+      if ((final || interim) && !wakeModeRef.current) resetSilenceTimer(onUserMsg, onAsstMsg);
     };
     r.onerror = (e: SpeechRecognitionErrorEvent) => {
       if (e.error === 'no-speech' || e.error === 'aborted') return;
       setError(`Speech error: ${e.error}`);
     };
-    r.onend = () => { if (statusRef.current === 'listening') r.start(); };
-    try { r.start(); } catch { /* ignore — mic may be in use */ }
+    r.onend = () => { if (statusRef.current === 'listening') { try { r.start(); } catch {} } };
+    try { r.start(); } catch { /* mic may be in use */ }
   }, [setStatusCb, cleanupWebSpeech, resetSilenceTimer]);
 
   // ── xAI STT ─────────────────────────────────────────────
@@ -330,24 +412,32 @@ export function useVoiceEngine() {
     }
   }, [setStatusCb, cleanupXai, resetSilenceTimer]);
 
+  // Keep startWebSpeechRef current so processLLM can call it without circular dep
+  useEffect(() => { startWebSpeechRef.current = startWebSpeech; }, [startWebSpeech]);
+
   // ── Unified start/stop ──────────────────────────────────
   const startListening = useCallback((onUserMsg: (c: string) => void, onAsstMsg: (c: string) => void) => {
     if (engineRef.current === 'xai') startXaiSTT(onUserMsg, onAsstMsg);
-    else startWebSpeech(onUserMsg, onAsstMsg); // openai uses browser STT
+    else startWebSpeech(onUserMsg, onAsstMsg);
   }, [startXaiSTT, startWebSpeech]);
 
   const stopListening = useCallback(() => {
+    // Clear auto-resume + stored callbacks so conversation loop stops
+    clearAutoResume();
+    onUserMsgRef.current = null;
+    onAsstMsgRef.current = null;
     if (engineRef.current === 'xai') {
       if (wsRef.current?.readyState === WebSocket.OPEN) wsRef.current.send(JSON.stringify({ type: 'audio.done' }));
       cleanupXai();
     } else {
       cleanupWebSpeech();
     }
-  }, [cleanupXai, cleanupWebSpeech]);
+  }, [cleanupXai, cleanupWebSpeech, clearAutoResume]);
 
   // ── Controls ────────────────────────────────────────────
   const toggleMute = useCallback(() => {
     setIsMuted(p => { const n = !p; isMutedRef.current = n; if (n) { window.speechSynthesis?.cancel(); } return n; });
+    haptic(25);
   }, []);
 
   const cancelSpeech = useCallback(() => {
@@ -371,8 +461,31 @@ export function useVoiceEngine() {
     await processLLM(text.trim(), onUserMsg, onAsstMsg);
   }, [processLLM]);
 
+  // Toggle ambient mode (screen chrome disappears, waveform fills view)
+  const toggleAmbient = useCallback(() => {
+    setIsAmbient(p => !p);
+    haptic(40);
+  }, []);
+
+  // Toggle wake-word mode — always-on mic, only responds to "Hey Elara"
+  const toggleWakeMode = useCallback((onUserMsg: (c: string) => void, onAsstMsg: (c: string) => void) => {
+    const next = !wakeModeRef.current;
+    setWakeMode(next);
+    wakeModeRef.current = next;
+    haptic(next ? [40, 30, 40] : 20);
+    if (next) {
+      // Enter wake mode: start continuous listening but gate on phrase
+      startWebSpeech(onUserMsg, onAsstMsg);
+    }
+  }, [startWebSpeech]);
+
   // Cleanup on unmount
-  useEffect(() => () => { stopListening(); cancelSpeech(); cleanupXai(); }, [stopListening, cancelSpeech, cleanupXai]);
+  useEffect(() => () => {
+    clearAutoResume();
+    stopListening();
+    cancelSpeech();
+    cleanupXai();
+  }, [stopListening, cancelSpeech, cleanupXai, clearAutoResume]);
 
   return {
     engine,
@@ -383,9 +496,13 @@ export function useVoiceEngine() {
     interimTranscript,
     error,
     isMuted,
+    isAmbient,
+    wakeMode,
     startListening,
     stopListening,
     toggleMute,
+    toggleAmbient,
+    toggleWakeMode,
     cancelSpeech,
     sendText,
   };
